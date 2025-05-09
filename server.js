@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import mongoose, { connect } from 'mongoose'
 import cors from 'cors'
+import authRoutes from './src/routes/authRoutes.js'
 
 // load env
 dotenv.config()
@@ -16,6 +17,9 @@ app.use(cors()) //Enables CORS for all origins (useful for development with fron
 app.get('/', (req, res) => {
     res.send('Url shortener app running succesfully')
 })
+
+// all routes
+app.use('/api/auth', authRoutes)
 
 //Database Connection
 const connectDB = async () => {
