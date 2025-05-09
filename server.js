@@ -1,0 +1,37 @@
+import express from 'express'
+import dotenv from 'dotenv'
+import mongoose, { connect } from 'mongoose'
+import cors from 'cors'
+
+// load env
+dotenv.config()
+
+const app = express()
+
+//middleware
+app.use(express.json())
+app.use(cors()) //Enables CORS for all origins (useful for development with frontend)
+
+//Basic route
+app.get('/', (req, res) => {
+    res.send('Url shortener app running succesfully')
+})
+
+//Database Connection
+const connectDB = async () => {
+  try{
+    await mongoose.connect(process.env.MONGO_URI)
+    console.log('MOngoDB Connected succesfully...')
+  } catch (err) {
+    console.log('Connection to mongoDB failed...', err.massage)
+    process.exit(1)
+  }
+}
+
+connectDB()
+
+const PORT = process.env.PORT || 5000
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+})
