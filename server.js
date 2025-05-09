@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import mongoose, { connect } from 'mongoose'
 import cors from 'cors'
 import authRoutes from './src/routes/authRoutes.js'
+import testRoutes from './src/routes/testRoutes.js'
 
 // load env
 dotenv.config()
@@ -18,8 +19,11 @@ app.get('/', (req, res) => {
     res.send('Url shortener app running succesfully')
 })
 
-// all routes
+// Mount Routes routes
 app.use('/api/auth', authRoutes)
+
+// Mount test routes
+app.use('/api/test', testRoutes)
 
 //Database Connection
 const connectDB = async () => {
