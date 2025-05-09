@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 const connectDB = async () => {
   try{
     await mongoose.connect(process.env.MONGO_URI)
-    console.log('MOngoDB Connected succesfully...')
+    console.log('MongoDB Connected succesfully...')
   } catch (err) {
     console.log('Connection to mongoDB failed...', err.massage)
     process.exit(1)
