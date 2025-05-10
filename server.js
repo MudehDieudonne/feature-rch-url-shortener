@@ -7,6 +7,9 @@ import testRoutes from './src/routes/testRoutes.js'
 import apiRoutes from './src/routes/apiRoutes.js'
 import publicRoutes from './src/routes/publicRoutes.js'
 import { notFound, errorHandler } from './src/middleware/errorMiddleware.js'
+import swaggerUi from 'swagger-ui-express'
+import swaggerJSDoc from 'swagger-jsdoc'
+import swaggerOptions from './src/swaggerConfig.js'
 
 // load env
 dotenv.config()
@@ -21,6 +24,10 @@ app.use(cors()) //Enables CORS for all origins (useful for development with fron
 app.get('/', (req, res) => {
     res.send('Url shortener app running succesfully')
 })
+
+//swagger documentation setup
+const swaggerSpec = swaggerJSDoc(swaggerOptions)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 // Mount Routes routes
 app.use('/',publicRoutes)

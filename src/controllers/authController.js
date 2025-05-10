@@ -5,6 +5,75 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+
+
+/**
+ * @swagger
+ * /api/auth/register:
+ * post:
+ * summary: Register a new user
+ * tags:
+ * - Authentication # Group this endpoint under 'Authentication' in the UI
+ * requestBody:
+ * required: true
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * required:
+ * - username
+ * - password
+ * properties:
+ * username:
+ * type: string
+ * description: The desired username (must be unique).
+ * example: newuser123
+ * password:
+ * type: string
+ * description: The user's password (minimum 6 characters).
+ * example: securepassword
+ * responses:
+ * 201:
+ * description: User registered successfully. Returns a JWT token.
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * message:
+ * type: string
+ * token:
+ * type: string
+ * description: JWT authentication token for the new user.
+ * user:
+ * type: object
+ * properties:
+ * id:
+ * type: string
+ * description: The new user's ID.
+ * username:
+ * type: string
+ * description: The new user's username.
+ * 400:
+ * description: Bad request (e.g., missing fields, user already exists).
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * message:
+ * type: string
+ * 500:
+ * description: Server error during registration.
+ * content:
+ * application/json:
+ * schema:
+ * type: object
+ * properties:
+ * message:
+ * type: string
+ */
+
 //Logic for user registration
 export const registerUser = async (req, res) => {
     const {username, password} = req.body
