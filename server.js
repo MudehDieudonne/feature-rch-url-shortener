@@ -4,7 +4,8 @@ import mongoose, { connect } from 'mongoose'
 import cors from 'cors'
 import authRoutes from './src/routes/authRoutes.js'
 import testRoutes from './src/routes/testRoutes.js'
-import urlRoutes from './src/routes/urlRoutes.js';
+import apiRoutes from './src/routes/apiRoutes.js'
+import publicRoutes from './src/routes/publicRoutes.js'
 
 // load env
 dotenv.config()
@@ -21,13 +22,12 @@ app.get('/', (req, res) => {
 })
 
 // Mount Routes routes
-app.use('/api/auth', authRoutes)
+app.use('/',publicRoutes)
 
-// Mount test routes
-app.use('/api/test', testRoutes)
-
-// Mount URL management routes 
-app.use('/api', urlRoutes)
+// Mount API routes (authenticated, management)
+app.use('/api', apiRoutes)
+app.use('/api/auth', authRoutes) // Auth routes specifically under /api/auth
+app.use('/api/test', testRoutes) // Test routes under /api/test
 
 //Database Connection
 const connectDB = async () => {

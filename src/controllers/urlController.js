@@ -98,3 +98,36 @@ export const createShortUrl = async (req, res) => {
     res.status(500).send('Server error')
   }
 }
+// Redirect to original long URL and track clicks
+// GET /s/:shortCode
+// Public (No Authentication Required)
+export const redirectToLongUrl = async (req, res) => {
+  const { shortCode } = req.params
+
+  try {
+    // find the URL mapping
+    const urlEntry = await Url.findOne({ shortCode })
+
+    if (!urlEntry) {
+      return res.status(404).json({ message: 'Short URL not found' })
+    }
+
+    // Check if expiresAt is set and is in the past
+    if (urlEntry.expiresAt && urlEntry.expiresAt < new Date()) {
+      return res.status(410).json({ message: 'Short URL has expired' }) // 410 Gone
+    }
+
+    // Track Clicks
+    // Increment the clicks counter before redirecting
+    urlEntry.clicks++
+    await urlEntry.save()
+
+    // Perform Redirect
+    return res.redirect(302, urlEntry.longUrl)
+
+  } catch (err) {
+    console.error('Error redirecting short URL:', err.message)
+    res.status(500).send('Server error')
+  }
+}
+
