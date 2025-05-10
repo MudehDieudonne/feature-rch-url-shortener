@@ -37,7 +37,6 @@ export const createShortUrl = async (req, res) => {
   }
 
   // Validate customCode format if provided (e.g., allowed characters, min length)
-  // This is a basic example, you might want more strict rules or reserved words checks
   if (customCode && !/^[a-zA-Z0-9_-]{4,}$/.test(customCode)) {
     return res.status(400).json({ message: 'Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.' }); // 400 Bad Request
   }
@@ -98,9 +97,8 @@ export const createShortUrl = async (req, res) => {
     res.status(500).send('Server error')
   }
 }
+
 // Redirect to original long URL and track clicks
-// GET /s/:shortCode
-// Public (No Authentication Required)
 export const redirectToLongUrl = async (req, res) => {
   const { shortCode } = req.params
 
@@ -141,6 +139,40 @@ export const getUsersUrls = async (req, res) => {
     res.status(200).json(userUrls)
   } catch (err) {
     console.error('Error fetching user URLs:', err.message)
+    res.status(500).send('Server error')
+  }
+}
+
+// Get detailed statistics for a specific short URL owned by the authenticated user
+export const getShortUrlStats = async (req, res) => {
+  const userId = req.user.id
+  const { shortCode } = req.params
+
+  try {
+    // We need to find the URL and ensure its 'createdBy' field matches the authenticated user's ID
+    const urlEntry = await Url.findOne({
+      shortCode: shortCode,
+      createdBy: userId
+    })
+
+    // Handle Not Found or Not Owned (404)
+    if (!urlEntry) {
+      return res.status(404).json({ message: 'Short URL not found or not owned by user' })
+    }
+
+    // Return the URL details, including clicks, dates, etc.
+    res.status(200).json({
+      shortCode: urlEntry.shortCode,
+      longUrl: urlEntry.longUrl,
+      createdBy: urlEntry.createdBy, // The user ID
+      createdAt: urlEntry.createdAt,
+      expiresAt: urlEntry.expiresAt,
+      clicks: urlEntry.clicks,
+      clickedTime: urlEntry.clickedTime
+    })
+
+  } catch (err) {
+    console.error('Error fetching short URL stats:', err.message)
     res.status(500).send('Server error')
   }
 }
