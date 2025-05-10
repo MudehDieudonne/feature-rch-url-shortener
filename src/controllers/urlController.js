@@ -11,7 +11,6 @@ const generateUniqueShortCode = async () => {
   while(!isUnique) {
     //Generate short code
     shortCode = nanoid(codeLength)
-    
     const existingUrl = await Url.findOne({shortCode})
     if(!existingUrl) {
       isUnique = true
@@ -22,16 +21,11 @@ const generateUniqueShortCode = async () => {
 }
 
 export const createShortUrl = async (req, res) => {
-  // get id of authenticated user
   const userId = req.user.id
   const { longUrl, customCode, expiresAt } = req.body
-
-  // Basic input validation
   if (!longUrl) {
     return res.status(400).json({message: 'Long Url is required'})
   }
-
-  // validate long input url format
   if (!validUrl.isUri(longUrl)) {
     return res.status(400).json({message: 'Invalide long url format'})
   }
@@ -49,21 +43,18 @@ export const createShortUrl = async (req, res) => {
         return res.status(400).json({ message: 'Invalid or past expiration date' }) // 400 Bad Request
     }
   }
-
   try {
     let shortCodeToUse
 
     if (customCode) {
       // If custom code is provided, check if it's already in use
       const existingUrl = await Url.findOne({ shortCode: customCode })
-
       if (existingUrl) {
         return res.status(409).json({ message: 'Custom code already exists' })
       }
       shortCodeToUse = customCode
 
     } else {
-      // If no custom code, generate a unique random one
       shortCodeToUse = await generateUniqueShortCode();
     }
 
@@ -77,10 +68,8 @@ export const createShortUrl = async (req, res) => {
 
     await newUrl.save()
 
-    //Prepare Response
     const shortUrl = `${req.protocol}://${req.get('host')}/s/${newUrl.shortCode}`;
-
-    //Send Success Response
+    console.log(`User ${userId} created short URL ${newUrl.shortCode} for ${newUrl.longUrl}`)
     res.status(201).json({
       message: 'Short URL created successfully',
       shortCode: newUrl.shortCode,
@@ -101,26 +90,20 @@ export const createShortUrl = async (req, res) => {
 // Redirect to original long URL and track clicks
 export const redirectToLongUrl = async (req, res) => {
   const { shortCode } = req.params
-
   try {
-    // find the URL mapping
     const urlEntry = await Url.findOne({ shortCode })
-
     if (!urlEntry) {
       return res.status(404).json({ message: 'Short URL not found' })
     }
-
-    // Check if expiresAt is set and is in the past
     if (urlEntry.expiresAt && urlEntry.expiresAt < new Date()) {
       return res.status(410).json({ message: 'Short URL has expired' }) // 410 Gone
     }
 
-    // Track Clicks
     // Increment the clicks counter before redirecting
     urlEntry.clicks++
     await urlEntry.save()
 
-    // Perform Redirect
+    console.log(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Clicks: ${urlEntry.clicks}`)
     return res.redirect(302, urlEntry.longUrl)
 
   } catch (err) {
@@ -130,12 +113,11 @@ export const redirectToLongUrl = async (req, res) => {
 }
 
 export const getUsersUrls = async (req, res) => {
-  // The authenticated user's ID is available in req.user.id
   const userId = req.user.id;
-
   try {
     // Find all URLs created by this user and Return the array of URL documents found
-    const userUrls = await Url.find({ createdBy: userId }).sort({ createdAt: -1 });
+    const userUrls = await Url.find({ createdBy: userId }).sort({ createdAt: -1 })
+    console.log(`User ${userId} fetched their URLs.`);
     res.status(200).json(userUrls)
   } catch (err) {
     console.error('Error fetching user URLs:', err.message)
@@ -147,20 +129,16 @@ export const getUsersUrls = async (req, res) => {
 export const getShortUrlStats = async (req, res) => {
   const userId = req.user.id
   const { shortCode } = req.params
-
   try {
     // We need to find the URL and ensure its 'createdBy' field matches the authenticated user's ID
     const urlEntry = await Url.findOne({
       shortCode: shortCode,
       createdBy: userId
     })
-
-    // Handle Not Found or Not Owned (404)
     if (!urlEntry) {
       return res.status(404).json({ message: 'Short URL not found or not owned by user' })
     }
-
-    // Return the URL details, including clicks, dates, etc.
+    console.log(`User ${userId} fetched stats for short code ${shortCode}.`)
     res.status(200).json({
       shortCode: urlEntry.shortCode,
       longUrl: urlEntry.longUrl,

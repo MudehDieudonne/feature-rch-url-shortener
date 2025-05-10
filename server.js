@@ -6,6 +6,7 @@ import authRoutes from './src/routes/authRoutes.js'
 import testRoutes from './src/routes/testRoutes.js'
 import apiRoutes from './src/routes/apiRoutes.js'
 import publicRoutes from './src/routes/publicRoutes.js'
+import { notFound, errorHandler } from './src/middleware/errorMiddleware.js'
 
 // load env
 dotenv.config()
@@ -41,6 +42,12 @@ const connectDB = async () => {
 }
 
 connectDB()
+
+// Error Handling Middleware This catches any requests that haven't been handled by the above routes
+app.use(notFound)
+
+// for errors passed by next(err) and unhandled exceptions
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 5000
 

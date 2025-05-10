@@ -5,10 +5,6 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
-
 //Logic for user registration
 export const registerUser = async (req, res) => {
     const {username, password} = req.body
@@ -52,6 +48,7 @@ export const registerUser = async (req, res) => {
         (err, token) => {
           if(err) throw err
           //send succesfull respond
+          console.log(`User registered: ${user.username} (ID: ${user.id})`)
           res.status(201).json({
             massage: "User registration succesfull", token,
             user: {id: user.id, username: user.name}
@@ -59,17 +56,12 @@ export const registerUser = async (req, res) => {
         }
       )
     } catch (err) {
-        //handle server error
         console.error(err.massage)
         res.status(500).send('Server Error')
     }
 }
 
 //Login Logic
-
-// @desc    Authenticate user & get token
-// @route   POST /api/auth/login
-// @access  Public
 export const loginUser = async (req, res) => {
   const { username, password } = req.body // Get username and password
 
@@ -102,20 +94,19 @@ export const loginUser = async (req, res) => {
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }, // Token expiration time
+      { expiresIn: '24h' },
       (err, token) => {
         if (err) throw err;
-        // Send Success Response
-        res.json({ // Default status is 200 OK
+        console.log(`User logged in: ${user.username} (ID: ${user.id})`);
+        res.json({
           message: 'Logged in successfully',
-          token, // Return the generated token
-          user: { id: user.id, username: user.username } // Return some user details
+          token,
+          user: { id: user.id, username: user.username }
         })
       }
     )
 
   } catch (err) {
-    // --- Handle Server Errors ---
     console.error(err.message);
     res.status(500).send('Server error')
   }
