@@ -131,3 +131,17 @@ export const redirectToLongUrl = async (req, res) => {
   }
 }
 
+export const getUsersUrls = async (req, res) => {
+  // The authenticated user's ID is available in req.user.id
+  const userId = req.user.id;
+
+  try {
+    // Find all URLs created by this user and Return the array of URL documents found
+    const userUrls = await Url.find({ createdBy: userId }).sort({ createdAt: -1 });
+    res.status(200).json(userUrls)
+  } catch (err) {
+    console.error('Error fetching user URLs:', err.message)
+    res.status(500).send('Server error')
+  }
+}
+

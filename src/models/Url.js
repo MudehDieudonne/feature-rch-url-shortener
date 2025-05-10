@@ -13,8 +13,8 @@ const UrlSchema = new mongoose.Schema({
     trim: true
   },
   createdBy: {
-    type: mongoose.Schema.Types.ObjectId, // This indicates a reference to another document's ID
-    ref: 'User', // Specifies that this ObjectId refers to a document in the 'users' collection
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true // Every short URL must be created by a user
   },
   createdAt: {
