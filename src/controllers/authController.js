@@ -5,73 +5,81 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-
-
 /**
  * @swagger
  * /api/auth/register:
- * post:
- * summary: Register a new user
- * tags:
- * - Authentication # Group this endpoint under 'Authentication' in the UI
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - username
- * - password
- * properties:
- * username:
- * type: string
- * description: The desired username (must be unique).
- * example: newuser123
- * password:
- * type: string
- * description: The user's password (minimum 6 characters).
- * example: securepassword
- * responses:
- * 201:
- * description: User registered successfully. Returns a JWT token.
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * message:
- * type: string
- * token:
- * type: string
- * description: JWT authentication token for the new user.
- * user:
- * type: object
- * properties:
- * id:
- * type: string
- * description: The new user's ID.
- * username:
- * type: string
- * description: The new user's username.
- * 400:
- * description: Bad request (e.g., missing fields, user already exists).
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * message:
- * type: string
- * 500:
- * description: Server error during registration.
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * message:
- * type: string
+ *   post:
+ *     summary: Register a new user
+ *     description: Creates a new user account and returns an authentication token.
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - password
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 30
+ *                 description: The desired username (must be unique)
+ *                 example: newuser123
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: The user's password (minimum 6 characters)
+ *                 example: securepassword
+ *     responses:
+ *       201:
+ *         description: User registered successfully. Returns a JWT token.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
+ *                 token:
+ *                   type: string
+ *                   description: JWT authentication token for the new user
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: The new user's ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     username:
+ *                       type: string
+ *                       description: The new user's username
+ *                       example: "newuser123"
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Username already exists"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Could not register user"
  */
 
 //Logic for user registration

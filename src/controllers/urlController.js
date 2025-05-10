@@ -2,6 +2,128 @@ import Url from "../models/Url.js"
 import { nanoid } from "nanoid"
 import validUrl from 'valid-url'
 
+/**
+ * @swagger
+ * /api/shorten:
+ *   post:
+ *     summary: Create a new short URL for the authenticated user
+ *     description: Creates a shortened version of a long URL with optional custom code and expiration
+ *     tags:
+ *       - URLs
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - longUrl
+ *             properties:
+ *               longUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: The original long URL to shorten
+ *                 example: https://www.example.com/very/long/page?param=value
+ *               customCode:
+ *                 type: string
+ *                 minLength: 4
+ *                 maxLength: 32
+ *                 pattern: '^[a-zA-Z0-9_-]+$'
+ *                 description: Optional custom short code (alphanumeric with hyphens/underscores)
+ *                 example: myuniquehandle
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional expiration timestamp in ISO 8601 format
+ *                 example: 2025-12-31T23:59:59Z
+ *     responses:
+ *       201:
+ *         description: Short URL created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "URL shortened successfully"
+ *                 shortCode:
+ *                   type: string
+ *                   description: The generated or custom short code
+ *                   example: "myuniquehandle"
+ *                 longUrl:
+ *                   type: string
+ *                   format: uri
+ *                   description: The original long URL
+ *                   example: "https://www.example.com/very/long/page?param=value"
+ *                 shortUrl:
+ *                   type: string
+ *                   format: uri
+ *                   description: The full generated short URL
+ *                   example: "http://localhost:5000/s/myuniquehandle"
+ *                 createdBy:
+ *                   type: string
+ *                   description: The ID of the user who created this URL
+ *                   example: "507f1f77bcf86cd799439011"
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Creation timestamp
+ *                   example: "2023-05-15T10:30:00Z"
+ *                 expiresAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                   description: Expiration timestamp if set
+ *                   example: "2025-12-31T23:59:59Z"
+ *                 clicks:
+ *                   type: integer
+ *                   description: Initial click count
+ *                   example: 0
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid URL format"
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Authentication required"
+ *       409:
+ *         description: Conflict
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Custom code already exists"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to create short URL"
+ */
+
 //function to generate unique short code
 const generateUniqueShortCode = async () => {
   let shortCode
