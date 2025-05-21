@@ -2,6 +2,7 @@ import User from "../models/user.js"
 import bcrypt from 'bcrypt'
 import jwt from "jsonwebtoken"
 import dotenv from "dotenv"
+import logger from "../config/logger.js"
 
 dotenv.config()
 
@@ -83,11 +84,14 @@ dotenv.config()
  */
 
 //Logic for user registration
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res, next) => {
     const {username, password} = req.body
-    //basic input validation
+
     if(!username || !password) {
-      return res.status(400).json({massage: 'Please enter all fields'})
+      // return res.status(400).json({massage: 'Please enter all fields'})
+      const error = new Error('Please enter all fields')
+      error.statusCode = 400
+      return next(error)
     }
 
     try {
@@ -95,7 +99,10 @@ export const registerUser = async (req, res) => {
       let user = await User.findOne({username})
 
       if(user) {
-        return res.status(400).json({massage: 'User already Exists'})
+        // return res.status(400).json({massage: 'User already Exists'})
+        const error = new Error('User Already exist')
+        error.statusCode = 400
+        return next(error)
       }
 
       // Generate a salt for password hashing
@@ -110,12 +117,10 @@ export const registerUser = async (req, res) => {
       //save user to db
       await user.save()
 
+      logger.info(`User registered: ${user.username} (ID: ${user.id})`)
+
       //generate jwt token
-      const payload = {
-        user: {
-          id: user.id
-        }
-      }
+      const payload = { user: { id: user.id } }
 
       //sign token
       jwt.sign(
@@ -123,7 +128,10 @@ export const registerUser = async (req, res) => {
         process.env.JWT_SECRET,
         {expiresIn: '24h'},
         (err, token) => {
-          if(err) throw err
+          if(err) {
+            logger.error('JWT signing error during registration:', err)
+            return next(err)
+          }
           //send succesfull respond
           console.log(`User registered: ${user.username} (ID: ${user.id})`)
           res.status(201).json({
@@ -133,39 +141,46 @@ export const registerUser = async (req, res) => {
         }
       )
     } catch (err) {
-        console.error(err.massage)
-        res.status(500).send('Server Error')
+      logger.error('Error during registration:', err)
+      next(err)
     }
 }
 
 //Login Logic
-export const loginUser = async (req, res) => {
-  const { username, password } = req.body // Get username and password
+export const loginUser = async (req, res, next) => {
+  const { username, password } = req.body
 
   if (!username || !password) {
-    return res.status(400).json({ message: 'Please enter all fields' })
+    // return res.status(400).json({ message: 'Please enter all fields' })
+    const error = new Error('Please enter all fields')
+    error.statusCode = 400
+    return next(error)
   }
 
   try {
    let user = await User.findOne({ username })
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid Credentials (User not found)' })
+      // return res.status(400).json({ message: 'Invalid Credentials (User not found)' })
+      const error = new Error('Invalid Credentials (User not found)')
+      error.statusCode = 400
+      return next(error)
     }
 
     // Compare Passwords Use bcrypt.compare
     const isMatch = await bcrypt.compare(password, user.password)
 
     if (!isMatch) {
-       return res.status(400).json({ message: 'Invalid Credentials (Password mismatch)' })
+      // return res.status(400).json({ message: 'Invalid Credentials (Password mismatch)' })
+      const error = new Error('Invalid Credentials (Password mismatch)')
+       error.statusCode = 400
+       return next(error)
     }
 
+    logger.info(`User logged in: ${user.username} (ID: ${user.id})`)
+
     // Passwords Match, Generate JWT Token
-    const payload = {
-      user: {
-        id: user.id // Mongoose models provide a virtual 'id' getter for '_id'
-      }
-    }
+    const payload = { user: {  id: user.id  } }
 
     // Sign the token
     jwt.sign(
@@ -173,8 +188,10 @@ export const loginUser = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '24h' },
       (err, token) => {
-        if (err) throw err;
-        console.log(`User logged in: ${user.username} (ID: ${user.id})`);
+        if (err) {
+          logger.error('JWT signing error during login:', err)
+          return next(err)
+        }
         res.json({
           message: 'Logged in successfully',
           token,
@@ -184,7 +201,7 @@ export const loginUser = async (req, res) => {
     )
 
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error')
+    logger.error('Error during login:', err)
+    next(err)
   }
 }

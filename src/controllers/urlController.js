@@ -1,6 +1,7 @@
 import Url from "../models/Url.js"
 import { nanoid } from "nanoid"
 import validUrl from 'valid-url'
+import logger from "../config/logger.js"
 
 /**
  * @swagger
@@ -129,32 +130,47 @@ const generateUniqueShortCode = async () => {
   let shortCode
   let isUnique = false
   let codeLength = 7
+  const maxAttempts = 10
+  let attempts = 0
 
-  while(!isUnique) {
+  while(!isUnique && attempts < maxAttempts) {
     //Generate short code
     shortCode = nanoid(codeLength)
     const existingUrl = await Url.findOne({shortCode})
     if(!existingUrl) {
       isUnique = true
     }
+    attempts++
+  }
+  if (!isUnique) {
+    throw new Error('Could not generate a unique short code after multiple attempts.');
   }
 
   return shortCode
 }
 
-export const createShortUrl = async (req, res) => {
+export const createShortUrl = async (req, res, next) => {
   const userId = req.user.id
   const { longUrl, customCode, expiresAt } = req.body
   if (!longUrl) {
-    return res.status(400).json({message: 'Long Url is required'})
+    // return res.status(400).json({message: 'Long Url is required'})
+    const error = new Error('Long URL is required')
+    error.statusCode = 400
+    return next(error)
   }
   if (!validUrl.isUri(longUrl)) {
-    return res.status(400).json({message: 'Invalide long url format'})
+    // return res.status(400).json({message: 'Invalide long url format'})
+    const error = new Error('Invalid long URL format')
+    error.statusCode = 400
+    return next(error)
   }
 
   // Validate customCode format if provided (e.g., allowed characters, min length)
   if (customCode && !/^[a-zA-Z0-9_-]{4,}$/.test(customCode)) {
-    return res.status(400).json({ message: 'Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.' }); // 400 Bad Request
+    // return res.status(400).json({ message: 'Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.' })
+    const error = new Error('Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.')
+    error.statusCode = 400
+    return next(error)
   }
 
   // Validate expiresAt if provided
@@ -162,9 +178,13 @@ export const createShortUrl = async (req, res) => {
   if (expiresAt) {
     expirationDate = new Date(expiresAt)
     if (isNaN(expirationDate.getTime()) || expirationDate <= new Date()) {
-        return res.status(400).json({ message: 'Invalid or past expiration date' }) // 400 Bad Request
+      // return res.status(400).json({ message: 'Invalid or past expiration date' }) // 400 Bad Request
+      const error = new Error('Invalid or past expiration date')
+      error.statusCode = 400
+      return next(error)
     }
   }
+
   try {
     let shortCodeToUse
 
@@ -172,7 +192,10 @@ export const createShortUrl = async (req, res) => {
       // If custom code is provided, check if it's already in use
       const existingUrl = await Url.findOne({ shortCode: customCode })
       if (existingUrl) {
-        return res.status(409).json({ message: 'Custom code already exists' })
+        // return res.status(409).json({ message: 'Custom code already exists' })
+        const error = new Error('Custom code already exists')
+        error.statusCode = 409
+        return next(error)
       }
       shortCodeToUse = customCode
 
@@ -190,8 +213,8 @@ export const createShortUrl = async (req, res) => {
 
     await newUrl.save()
 
-    const shortUrl = `${req.protocol}://${req.get('host')}/s/${newUrl.shortCode}`;
-    console.log(`User ${userId} created short URL ${newUrl.shortCode} for ${newUrl.longUrl}`)
+    const shortUrl = `${req.protocol}://${req.get('host')}/s/${newUrl.shortCode}`
+    logger.info(`User ${userId} created short URL ${newUrl.shortCode} for ${newUrl.longUrl}`)
     res.status(201).json({
       message: 'Short URL created successfully',
       shortCode: newUrl.shortCode,
@@ -204,51 +227,57 @@ export const createShortUrl = async (req, res) => {
     })
 
   } catch (err) {
-    console.error('Error creating short URL:', err.message)
-    res.status(500).send('Server error')
+    logger.error('Error creating short URL:', err)
+    next(err)
   }
 }
 
 // Redirect to original long URL and track clicks
-export const redirectToLongUrl = async (req, res) => {
+export const redirectToLongUrl = async (req, res, next) => {
   const { shortCode } = req.params
   try {
     const urlEntry = await Url.findOne({ shortCode })
     if (!urlEntry) {
-      return res.status(404).json({ message: 'Short URL not found' })
+      // return res.status(404).json({ message: 'Short URL not found' })
+      const error = new Error('Short URL not found')
+      error.statusCode = 404
+      return next(error)
     }
     if (urlEntry.expiresAt && urlEntry.expiresAt < new Date()) {
-      return res.status(410).json({ message: 'Short URL has expired' }) // 410 Gone
+      // return res.status(410).json({ message: 'Short URL has expired' }) // 410 Gone
+      const error = new Error('Short URL has expired')
+      error.statusCode = 410
+      return next(error)
     }
 
     // Increment the clicks counter before redirecting
     urlEntry.clicks++
     await urlEntry.save()
 
-    console.log(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Clicks: ${urlEntry.clicks}`)
+    logger.info(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Clicks: ${urlEntry.clicks}`)
     return res.redirect(302, urlEntry.longUrl)
 
   } catch (err) {
-    console.error('Error redirecting short URL:', err.message)
-    res.status(500).send('Server error')
+    logger.error('Error handling redirection:', err)
+    next(err)
   }
 }
 
-export const getUsersUrls = async (req, res) => {
+export const getUsersUrls = async (req, res, next) => {
   const userId = req.user.id;
   try {
     // Find all URLs created by this user and Return the array of URL documents found
     const userUrls = await Url.find({ createdBy: userId }).sort({ createdAt: -1 })
-    console.log(`User ${userId} fetched their URLs.`);
+    logger.info(`User ${userId} fetched their URLs.`)
     res.status(200).json(userUrls)
   } catch (err) {
-    console.error('Error fetching user URLs:', err.message)
-    res.status(500).send('Server error')
+    logger.error('Error fetching user URLs:', err)
+    next(err)
   }
 }
 
 // Get detailed statistics for a specific short URL owned by the authenticated user
-export const getShortUrlStats = async (req, res) => {
+export const getShortUrlStats = async (req, res, next) => {
   const userId = req.user.id
   const { shortCode } = req.params
   try {
@@ -258,9 +287,12 @@ export const getShortUrlStats = async (req, res) => {
       createdBy: userId
     })
     if (!urlEntry) {
-      return res.status(404).json({ message: 'Short URL not found or not owned by user' })
+      // return res.status(404).json({ message: 'Short URL not found or not owned by user' })
+      const error = new Error('Short URL not found or not owned by user')
+      error.statusCode = 404
+      return next(error)
     }
-    console.log(`User ${userId} fetched stats for short code ${shortCode}.`)
+    logger.info(`User ${userId} fetched stats for short code ${shortCode}.`)
     res.status(200).json({
       shortCode: urlEntry.shortCode,
       longUrl: urlEntry.longUrl,
@@ -272,8 +304,8 @@ export const getShortUrlStats = async (req, res) => {
     })
 
   } catch (err) {
-    console.error('Error fetching short URL stats:', err.message)
-    res.status(500).send('Server error')
+    logger.error('Error fetching short URL stats:', err)
+    next(err)
   }
 }
 

@@ -1,4 +1,6 @@
-// Middleware handle requests to undefined routes (404 Not Found)
+import logger from "../config/logger.js"
+
+// Middleware to handle requests to undefined routes (404 Not Found)
 const notFound = (req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`)
   res.status(404)
@@ -7,12 +9,13 @@ const notFound = (req, res, next) => {
 
 // General Error Handling Middleware
 const errorHandler = (err, req, res, next) => {
-  console.error(err.stack) // Log stack trace to the server console
+  logger.error(err.message, err)
+
   const statusCode = err.statusCode || 500;
 
-  // Send the error response as JSON
   res.status(statusCode).json({
     message: err.message || 'Server Error',
+    // this stack trace is only in development modeOnly for security Remove when Aproved
     stack: process.env.NODE_ENV === 'development' ? err.stack : null,
   })
 }
