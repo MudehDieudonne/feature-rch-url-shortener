@@ -2,6 +2,7 @@ import Url from "../models/Url.js"
 import { nanoid } from "nanoid"
 import validUrl from 'valid-url'
 import logger from "../config/logger.js"
+import ClickLog from "../models/ClickLog.js"
 
 /**
  * @swagger
@@ -254,7 +255,13 @@ export const redirectToLongUrl = async (req, res, next) => {
     urlEntry.clicks++
     await urlEntry.save()
 
-    logger.info(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Clicks: ${urlEntry.clicks}`)
+    // Create a new ClickLog entry for detailed tracking
+    const newClickLog = new ClickLog({
+      url: urlEntry._id,
+    })
+    await newClickLog.save()
+
+    logger.info(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Total Clicks: ${urlEntry.clicks}. New click logged.`)
     return res.redirect(302, urlEntry.longUrl)
 
   } catch (err) {
