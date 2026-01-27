@@ -8,122 +8,51 @@ import { z } from 'zod'
 dotenv.config()
 
 const registerSchema = z.object({
-  username: z.string().min(3).max(30),
-  password: z.string().min(6)
+  name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name too long"),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters")
 })
 
 const loginSchema = z.object({
-  username: z.string(),
-  password: z.string()
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required")
 })
 
-/**
- * @swagger
- * /api/auth/register:
- *   post:
- *     summary: Register a new user
- *     description: Creates a new user account and returns an authentication token.
- *     tags:
- *       - Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *               - password
- *             properties:
- *               username:
- *                 type: string
- *                 minLength: 3
- *                 maxLength: 30
- *                 description: The desired username (must be unique)
- *                 example: newuser123
- *               password:
- *                 type: string
- *                 minLength: 6
- *                 description: The user's password (minimum 6 characters)
- *                 example: securepassword
- *     responses:
- *       201:
- *         description: User registered successfully. Returns a JWT token.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "User registered successfully"
- *                 token:
- *                   type: string
- *                   description: JWT authentication token for the new user
- *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                       description: The new user's ID
- *                       example: "507f1f77bcf86cd799439011"
- *                     username:
- *                       type: string
- *                       description: The new user's username
- *                       example: "newuser123"
- *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Username already exists"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Could not register user"
- */
-
 // Logic for user registration
-export const registerUser = async (req, res, next) => {
+export const registerUser = async (req, res) => {
   try {
     const validatedData = registerSchema.parse(req.body)
-    const { username, password } = validatedData
+    const { name, email, password } = validatedData
 
-    // check if user exist
+    // check if user exists by email
     const existingUser = await prisma.user.findUnique({
-      where: { username }
+      where: { email }
     })
 
     if (existingUser) {
-      const error = new Error('Username already exists')
-      error.statusCode = 409
-      return next(error)
+      return res.status(409).json({
+        message: 'An account with this email already exists. Please login instead.'
+      })
     }
 
     // Generate a salt for password hashing
     const salt = await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password, salt)
 
+    // create username from email
+    const username = email.split('@')[0] + '_' + Date.now()
+
     // create new user
     const user = await prisma.user.create({
       data: {
+        name,
+        email,
         username,
         password: hashedPassword
       }
     })
 
-    logger.info(`User registered: ${user.username} (ID: ${user.id})`)
+    logger.info(`User registered: ${user.email} (ID: ${user.id})`)
 
     // generate jwt token
     const payload = { user: { id: user.id } }
@@ -136,52 +65,52 @@ export const registerUser = async (req, res, next) => {
       (err, token) => {
         if (err) {
           logger.error('JWT signing error during registration:', err)
-          return next(err)
+          return res.status(500).json({ message: 'Failed to create account. Please try again.' })
         }
         res.status(201).json({
-          message: "User registration successful",
+          message: "Account created successfully!",
           token,
-          user: { id: user.id, username: user.username }
+          user: { id: user.id, name: user.name, email: user.email }
         })
       }
     )
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const error = new Error(err.errors.map(e => e.message).join(', '))
-      error.statusCode = 400
-      return next(error)
+      return res.status(400).json({
+        message: err.errors.map(e => e.message).join('. ')
+      })
     }
-    logger.error('Error during registration:', err)
-    next(err)
+    logger.error('Registration error:', err)
+    res.status(500).json({ message: 'Unable to create account. Please try again later.' })
   }
 }
 
 // Login Logic
-export const loginUser = async (req, res, next) => {
+export const loginUser = async (req, res) => {
   try {
     const validatedData = loginSchema.parse(req.body)
-    const { username, password } = validatedData
+    const { email, password } = validatedData
 
     const user = await prisma.user.findUnique({
-      where: { username }
+      where: { email }
     })
 
     if (!user) {
-      const error = new Error('Invalid Credentials')
-      error.statusCode = 401
-      return next(error)
+      return res.status(401).json({
+        message: 'Invalid email or password. Please try again.'
+      })
     }
 
     // Compare Passwords
     const isMatch = await bcrypt.compare(password, user.password)
 
     if (!isMatch) {
-      const error = new Error('Invalid Credentials')
-      error.statusCode = 401
-      return next(error)
+      return res.status(401).json({
+        message: 'Invalid email or password. Please try again.'
+      })
     }
 
-    logger.info(`User logged in: ${user.username} (ID: ${user.id})`)
+    logger.info(`User logged in: ${user.email} (ID: ${user.id})`)
 
     // Passwords Match, Generate JWT Token
     const payload = { user: { id: user.id } }
@@ -194,23 +123,23 @@ export const loginUser = async (req, res, next) => {
       (err, token) => {
         if (err) {
           logger.error('JWT signing error during login:', err)
-          return next(err)
+          return res.status(500).json({ message: 'Login failed. Please try again.' })
         }
         res.json({
-          message: 'Logged in successfully',
+          message: 'Welcome back!',
           token,
-          user: { id: user.id, username: user.username }
+          user: { id: user.id, name: user.name, email: user.email }
         })
       }
     )
 
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const error = new Error(err.errors.map(e => e.message).join(', '))
-      error.statusCode = 400
-      return next(error)
+      return res.status(400).json({
+        message: err.errors.map(e => e.message).join('. ')
+      })
     }
-    logger.error('Error during login:', err)
-    next(err)
+    logger.error('Login error:', err)
+    res.status(500).json({ message: 'Login failed. Please try again later.' })
   }
 }

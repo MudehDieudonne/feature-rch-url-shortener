@@ -4,25 +4,26 @@
   "main": "bin/www.js",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
-    "dev": "nodemon bin/www.js"
+    "start": "node bin/www.js",
+    "dev": "nodemon bin/www.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^5.22.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.14.2",
     "morgan": "^1.10.0",
     "nanoid": "^5.1.5",
-    "pg": "^8.17.2",
+    "pg": "^8.13.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "valid-url": "^1.0.9",
@@ -32,7 +33,7 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.1.10",
-    "prisma": "^7.3.0",
+    "prisma": "^5.22.0",
     "supertest": "^7.1.1"
   }
 }
