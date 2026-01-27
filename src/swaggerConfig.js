@@ -7,7 +7,7 @@ const swaggerOptions = {
     info: {
       title: 'URL Shortener API',
       version: '1.0.0',
-      description: 'A secure URL shortening service with features like custom short codes, expiration dates, and click analytics. Built with Node.js, Express, and MongoDB.',
+      description: 'A secure URL shortening service with features like custom short codes, expiration dates, and click analytics. Built with Node.js, Express, and PostgreSQL (via Prisma).',
       license: {
         name: 'MIT',
         url: 'https://opensource.org/licenses/MIT'
@@ -29,12 +29,8 @@ const swaggerOptions = {
         description: 'Development API server'
       },
       {
-        url: `http://localhost:${process.env.PORT || 5000}/s`,
+        url: `http://localhost:${process.env.PORT || 5000}`,
         description: 'Public redirection endpoint'
-      },
-      {
-        url: 'https://api.yourdomain.com/v1',
-        description: 'Production API server'
       }
     ],
     components: {
@@ -78,8 +74,7 @@ const swaggerOptions = {
   },
   apis: [
     './src/routes/*.js',
-    './src/controllers/*.js',
-    './src/models/*.js'
+    './src/controllers/*.js'
   ],
   explorer: true,
   customSiteTitle: 'URL Shortener API Docs',

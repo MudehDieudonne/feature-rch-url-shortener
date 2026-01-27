@@ -1,10 +1,21 @@
-import User from "../models/user.js"
+import prisma from "../config/prisma.js"
 import bcrypt from 'bcrypt'
 import jwt from "jsonwebtoken"
 import dotenv from "dotenv"
 import logger from "../config/logger.js"
+import { z } from 'zod'
 
 dotenv.config()
+
+const registerSchema = z.object({
+  username: z.string().min(3).max(30),
+  password: z.string().min(6)
+})
+
+const loginSchema = z.object({
+  username: z.string(),
+  password: z.string()
+})
 
 /**
  * @swagger
@@ -83,104 +94,97 @@ dotenv.config()
  *                   example: "Could not register user"
  */
 
-//Logic for user registration
+// Logic for user registration
 export const registerUser = async (req, res, next) => {
-    const {username, password} = req.body
+  try {
+    const validatedData = registerSchema.parse(req.body)
+    const { username, password } = validatedData
 
-    if(!username || !password) {
-      // return res.status(400).json({massage: 'Please enter all fields'})
-      const error = new Error('Please enter all fields')
-      error.statusCode = 400
+    // check if user exist
+    const existingUser = await prisma.user.findUnique({
+      where: { username }
+    })
+
+    if (existingUser) {
+      const error = new Error('Username already exists')
+      error.statusCode = 409
       return next(error)
     }
 
-    try {
-      //check if user exist
-      let user = await User.findOne({username})
+    // Generate a salt for password hashing
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(password, salt)
 
-      if(user) {
-        // return res.status(400).json({massage: 'User already Exists'})
-        const error = new Error('User Already exist')
-        error.statusCode = 400
-        return next(error)
-      }
-
-      // Generate a salt for password hashing
-      const salt = await bcrypt.genSalt(10)
-      const hashedPassword = await bcrypt.hash(password, salt)
-
-      //create new user
-      user = new User({
+    // create new user
+    const user = await prisma.user.create({
+      data: {
         username,
         password: hashedPassword
-      })
-      //save user to db
-      await user.save()
+      }
+    })
 
-      logger.info(`User registered: ${user.username} (ID: ${user.id})`)
+    logger.info(`User registered: ${user.username} (ID: ${user.id})`)
 
-      //generate jwt token
-      const payload = { user: { id: user.id } }
+    // generate jwt token
+    const payload = { user: { id: user.id } }
 
-      //sign token
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        {expiresIn: '24h'},
-        (err, token) => {
-          if(err) {
-            logger.error('JWT signing error during registration:', err)
-            return next(err)
-          }
-          //send succesfull respond
-          console.log(`User registered: ${user.username} (ID: ${user.id})`)
-          res.status(201).json({
-            massage: "User registration succesfull", token,
-            user: {id: user.id, username: user.name}
-          })
+    // sign token
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' },
+      (err, token) => {
+        if (err) {
+          logger.error('JWT signing error during registration:', err)
+          return next(err)
         }
-      )
-    } catch (err) {
-      logger.error('Error during registration:', err)
-      next(err)
-    }
-}
-
-//Login Logic
-export const loginUser = async (req, res, next) => {
-  const { username, password } = req.body
-
-  if (!username || !password) {
-    // return res.status(400).json({ message: 'Please enter all fields' })
-    const error = new Error('Please enter all fields')
-    error.statusCode = 400
-    return next(error)
-  }
-
-  try {
-   let user = await User.findOne({ username })
-
-    if (!user) {
-      // return res.status(400).json({ message: 'Invalid Credentials (User not found)' })
-      const error = new Error('Invalid Credentials (User not found)')
+        res.status(201).json({
+          message: "User registration successful",
+          token,
+          user: { id: user.id, username: user.username }
+        })
+      }
+    )
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const error = new Error(err.errors.map(e => e.message).join(', '))
       error.statusCode = 400
       return next(error)
     }
+    logger.error('Error during registration:', err)
+    next(err)
+  }
+}
 
-    // Compare Passwords Use bcrypt.compare
+// Login Logic
+export const loginUser = async (req, res, next) => {
+  try {
+    const validatedData = loginSchema.parse(req.body)
+    const { username, password } = validatedData
+
+    const user = await prisma.user.findUnique({
+      where: { username }
+    })
+
+    if (!user) {
+      const error = new Error('Invalid Credentials')
+      error.statusCode = 401
+      return next(error)
+    }
+
+    // Compare Passwords
     const isMatch = await bcrypt.compare(password, user.password)
 
     if (!isMatch) {
-      // return res.status(400).json({ message: 'Invalid Credentials (Password mismatch)' })
-      const error = new Error('Invalid Credentials (Password mismatch)')
-       error.statusCode = 400
-       return next(error)
+      const error = new Error('Invalid Credentials')
+      error.statusCode = 401
+      return next(error)
     }
 
     logger.info(`User logged in: ${user.username} (ID: ${user.id})`)
 
     // Passwords Match, Generate JWT Token
-    const payload = { user: {  id: user.id  } }
+    const payload = { user: { id: user.id } }
 
     // Sign the token
     jwt.sign(
@@ -201,6 +205,11 @@ export const loginUser = async (req, res, next) => {
     )
 
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      const error = new Error(err.errors.map(e => e.message).join(', '))
+      error.statusCode = 400
+      return next(error)
+    }
     logger.error('Error during login:', err)
     next(err)
   }

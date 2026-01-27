@@ -116,7 +116,7 @@ router.post('/shorten', authMiddleware, createShortUrl)
  *     tags:
  *       - URLs
  *     security:
- *       - bearerAuth: [] # Indicates this route requires authentication
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: A list of short URLs created by the user.
@@ -127,55 +127,25 @@ router.post('/shorten', authMiddleware, createShortUrl)
  *               items:
  *                 type: object
  *                 properties:
- *                   _id:
+ *                   id:
  *                     type: string
- *                     description: The unique ID of the URL document.
  *                   shortCode:
  *                     type: string
- *                     description: The short code.
  *                   longUrl:
  *                     type: string
- *                     description: The original long URL.
- *                   createdBy:
+ *                   userId:
  *                     type: string
- *                     description: The ID of the user who created this URL.
  *                   createdAt:
  *                     type: string
  *                     format: date-time
- *                     description: The creation timestamp.
  *                   expiresAt:
  *                     type: string
  *                     format: date-time
  *                     nullable: true
- *                     description: The expiration timestamp (optional).
  *                   clicks:
  *                     type: number
- *                     description: The number of clicks.
- *                   __v:
- *                     type: number
- *                     description: Mongoose version key.
- *       401:
- *         description: Unauthorized (missing or invalid token).
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       500:
- *         description: Server error fetching user URLs.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
  */
-
-// apply middleware to protect and Get User's URLs Route
-router.get('/my-urls', authMiddleware, getUsersUrls )
+router.get('/my-urls', authMiddleware, getUsersUrls)
 
 /**
  * @swagger
@@ -193,8 +163,6 @@ router.get('/my-urls', authMiddleware, getUsersUrls )
  *         schema:
  *           type: string
  *         required: true
- *         description: The short code of the URL to get stats for.
- *         example: vWU3E7m
  *     responses:
  *       200:
  *         description: Detailed statistics for the URL.
@@ -205,55 +173,30 @@ router.get('/my-urls', authMiddleware, getUsersUrls )
  *               properties:
  *                 shortCode:
  *                   type: string
- *                   description: The short code.
  *                 longUrl:
  *                   type: string
- *                   description: The original long URL.
- *                 createdBy:
+ *                 userId:
  *                   type: string
- *                   description: The ID of the user who created this URL.
  *                 createdAt:
  *                   type: string
  *                   format: date-time
- *                   description: The creation timestamp.
  *                 expiresAt:
  *                   type: string
  *                   format: date-time
  *                   nullable: true
- *                   description: The expiration timestamp (optional).
  *                 clicks:
  *                   type: number
- *                   description: The number of clicks.
- *       401:
- *         description: Unauthorized (missing or invalid token).
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       404:
- *         description: Short URL not found or not owned by the authenticated user.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       500:
- *         description: Server error fetching URL stats.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
+ *                 clickLogs:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       clickedAt:
+ *                         type: string
+ *                         format: date-time
  */
-
-// Get Short URL Stats Route detailed stats for a scpacific short URL of a user
-router.get('/shorten/:shortCode/stats', authMiddleware, getShortUrlStats) 
+router.get('/shorten/:shortCode/stats', authMiddleware, getShortUrlStats)
 
 export default router

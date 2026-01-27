@@ -1,8 +1,15 @@
-import Url from "../models/Url.js"
+import prisma from "../config/prisma.js"
 import { nanoid } from "nanoid"
-import validUrl from 'valid-url'
 import logger from "../config/logger.js"
-import ClickLog from "../models/ClickLog.js"
+import { z } from 'zod'
+
+const shortenSchema = z.object({
+  longUrl: z.string().url(),
+  customCode: z.string().min(4).max(32).regex(/^[a-zA-Z0-9_-]+$/).optional(),
+  expiresAt: z.string().datetime().optional().refine((val) => !val || new Date(val) > new Date(), {
+    message: "Expiration date must be in the future"
+  })
+})
 
 /**
  * @swagger
@@ -126,25 +133,27 @@ import ClickLog from "../models/ClickLog.js"
  *                   example: "Failed to create short URL"
  */
 
-//function to generate unique short code
+// function to generate unique short code
 const generateUniqueShortCode = async () => {
   let shortCode
   let isUnique = false
-  let codeLength = 7
+  const codeLength = 7
   const maxAttempts = 10
   let attempts = 0
 
-  while(!isUnique && attempts < maxAttempts) {
-    //Generate short code
+  while (!isUnique && attempts < maxAttempts) {
     shortCode = nanoid(codeLength)
-    const existingUrl = await Url.findOne({shortCode})
-    if(!existingUrl) {
+    const existingUrl = await prisma.url.findUnique({
+      where: { shortCode }
+    })
+    if (!existingUrl) {
       isUnique = true
     }
     attempts++
   }
+
   if (!isUnique) {
-    throw new Error('Could not generate a unique short code after multiple attempts.');
+    throw new Error('Could not generate a unique short code after multiple attempts.')
   }
 
   return shortCode
@@ -152,82 +161,56 @@ const generateUniqueShortCode = async () => {
 
 export const createShortUrl = async (req, res, next) => {
   const userId = req.user.id
-  const { longUrl, customCode, expiresAt } = req.body
-  if (!longUrl) {
-    // return res.status(400).json({message: 'Long Url is required'})
-    const error = new Error('Long URL is required')
-    error.statusCode = 400
-    return next(error)
-  }
-  if (!validUrl.isUri(longUrl)) {
-    // return res.status(400).json({message: 'Invalide long url format'})
-    const error = new Error('Invalid long URL format')
-    error.statusCode = 400
-    return next(error)
-  }
-
-  // Validate customCode format if provided (e.g., allowed characters, min length)
-  if (customCode && !/^[a-zA-Z0-9_-]{4,}$/.test(customCode)) {
-    // return res.status(400).json({ message: 'Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.' })
-    const error = new Error('Invalid custom code format. Use alphanumeric characters, hyphens, or underscores. Minimum 4 characters.')
-    error.statusCode = 400
-    return next(error)
-  }
-
-  // Validate expiresAt if provided
-  let expirationDate = null
-  if (expiresAt) {
-    expirationDate = new Date(expiresAt)
-    if (isNaN(expirationDate.getTime()) || expirationDate <= new Date()) {
-      // return res.status(400).json({ message: 'Invalid or past expiration date' }) // 400 Bad Request
-      const error = new Error('Invalid or past expiration date')
-      error.statusCode = 400
-      return next(error)
-    }
-  }
 
   try {
+    const validatedData = shortenSchema.parse(req.body)
+    const { longUrl, customCode, expiresAt } = validatedData
+
     let shortCodeToUse
 
     if (customCode) {
-      // If custom code is provided, check if it's already in use
-      const existingUrl = await Url.findOne({ shortCode: customCode })
+      const existingUrl = await prisma.url.findUnique({
+        where: { shortCode: customCode }
+      })
       if (existingUrl) {
-        // return res.status(409).json({ message: 'Custom code already exists' })
         const error = new Error('Custom code already exists')
         error.statusCode = 409
         return next(error)
       }
       shortCodeToUse = customCode
-
     } else {
-      shortCodeToUse = await generateUniqueShortCode();
+      shortCodeToUse = await generateUniqueShortCode()
     }
 
-    //Create and Save New URL Document
-    const newUrl = new Url({
-      shortCode: shortCodeToUse,
-      longUrl,
-      createdBy: userId,
-      expiresAt: expirationDate
+    const newUrl = await prisma.url.create({
+      data: {
+        shortCode: shortCodeToUse,
+        longUrl,
+        userId: userId,
+        expiresAt: expiresAt ? new Date(expiresAt) : null
+      }
     })
-
-    await newUrl.save()
 
     const shortUrl = `${req.protocol}://${req.get('host')}/s/${newUrl.shortCode}`
     logger.info(`User ${userId} created short URL ${newUrl.shortCode} for ${newUrl.longUrl}`)
+
     res.status(201).json({
       message: 'Short URL created successfully',
       shortCode: newUrl.shortCode,
       longUrl: newUrl.longUrl,
-      shortUrl: shortUrl, // Include the full short URL
-      createdBy: newUrl.createdBy, // Show the user ID who created it
+      shortUrl: shortUrl,
+      createdBy: newUrl.userId,
       expiresAt: newUrl.expiresAt,
       createdAt: newUrl.createdAt,
       clicks: newUrl.clicks
     })
 
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      const error = new Error(err.errors.map(e => e.message).join(', '))
+      error.statusCode = 400
+      return next(error)
+    }
     logger.error('Error creating short URL:', err)
     next(err)
   }
@@ -237,31 +220,34 @@ export const createShortUrl = async (req, res, next) => {
 export const redirectToLongUrl = async (req, res, next) => {
   const { shortCode } = req.params
   try {
-    const urlEntry = await Url.findOne({ shortCode })
+    const urlEntry = await prisma.url.findUnique({
+      where: { shortCode }
+    })
+
     if (!urlEntry) {
-      // return res.status(404).json({ message: 'Short URL not found' })
       const error = new Error('Short URL not found')
       error.statusCode = 404
       return next(error)
     }
+
     if (urlEntry.expiresAt && urlEntry.expiresAt < new Date()) {
-      // return res.status(410).json({ message: 'Short URL has expired' }) // 410 Gone
       const error = new Error('Short URL has expired')
       error.statusCode = 410
       return next(error)
     }
 
-    // Increment the clicks counter before redirecting
-    urlEntry.clicks++
-    await urlEntry.save()
+    // Increment clicks and create log
+    await prisma.$transaction([
+      prisma.url.update({
+        where: { id: urlEntry.id },
+        data: { clicks: { increment: 1 } }
+      }),
+      prisma.clickLog.create({
+        data: { urlId: urlEntry.id }
+      })
+    ])
 
-    // Create a new ClickLog entry for detailed tracking
-    const newClickLog = new ClickLog({
-      url: urlEntry._id,
-    })
-    await newClickLog.save()
-
-    logger.info(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. Total Clicks: ${urlEntry.clicks}. New click logged.`)
+    logger.info(`Redirecting short code ${shortCode} to ${urlEntry.longUrl}. New click logged.`)
     return res.redirect(302, urlEntry.longUrl)
 
   } catch (err) {
@@ -271,10 +257,12 @@ export const redirectToLongUrl = async (req, res, next) => {
 }
 
 export const getUsersUrls = async (req, res, next) => {
-  const userId = req.user.id;
+  const userId = req.user.id
   try {
-    // Find all URLs created by this user and Return the array of URL documents found
-    const userUrls = await Url.find({ createdBy: userId }).sort({ createdAt: -1 })
+    const userUrls = await prisma.url.findMany({
+      where: { userId: userId },
+      orderBy: { createdAt: 'desc' }
+    })
     logger.info(`User ${userId} fetched their URLs.`)
     res.status(200).json(userUrls)
   } catch (err) {
@@ -288,26 +276,31 @@ export const getShortUrlStats = async (req, res, next) => {
   const userId = req.user.id
   const { shortCode } = req.params
   try {
-    // We need to find the URL and ensure its 'createdBy' field matches the authenticated user's ID
-    const urlEntry = await Url.findOne({
-      shortCode: shortCode,
-      createdBy: userId
+    const urlEntry = await prisma.url.findUnique({
+      where: { shortCode: shortCode },
+      include: {
+        clickLogs: {
+          orderBy: { clickedAt: 'desc' },
+          take: 10 // Get last 10 clicks for analytics
+        }
+      }
     })
-    if (!urlEntry) {
-      // return res.status(404).json({ message: 'Short URL not found or not owned by user' })
+
+    if (!urlEntry || urlEntry.userId !== userId) {
       const error = new Error('Short URL not found or not owned by user')
       error.statusCode = 404
       return next(error)
     }
+
     logger.info(`User ${userId} fetched stats for short code ${shortCode}.`)
     res.status(200).json({
       shortCode: urlEntry.shortCode,
       longUrl: urlEntry.longUrl,
-      createdBy: urlEntry.createdBy, // The user ID
+      userId: urlEntry.userId,
       createdAt: urlEntry.createdAt,
       expiresAt: urlEntry.expiresAt,
       clicks: urlEntry.clicks,
-      clickedTime: urlEntry.clickedTime
+      clickLogs: urlEntry.clickLogs
     })
 
   } catch (err) {

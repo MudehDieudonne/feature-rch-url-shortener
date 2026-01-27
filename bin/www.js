@@ -1,8 +1,5 @@
 import dotenv from 'dotenv'
-import mongoose from 'mongoose'
-import http from 'http'
-import app from '../src/app.js'
-import logger from '../src/config/logger.js'
+import prisma from '../src/config/prisma.js'
 
 dotenv.config();
 
@@ -13,13 +10,13 @@ app.set('port', PORT)
 // Create HTTP server.
 const server = http.createServer(app)
 
-// MongoDB Connection
+// Database Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI)
-    logger.info('MongoDB Connected...')
+    await prisma.$connect()
+    logger.info('PostgreSQL Connected via Prisma...')
   } catch (err) {
-    logger.error('MongoDB connection failed:', err.message, err)
+    logger.error('Database connection failed:', err.message, err)
     process.exit(1)
   }
 }

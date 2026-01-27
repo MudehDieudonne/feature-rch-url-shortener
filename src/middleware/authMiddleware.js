@@ -4,28 +4,31 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const authMiddleware = (req, res, next) => {
-  // Get the token from the request header
-  // The token is usually sent in the Authorization header in the format "Bearer TOKEN_STRING"
   const authHeader = req.header('Authorization')
 
-  if(!authHeader) {
-    return res.status(401).json({message: 'No token, authorization denied'})
+  if (!authHeader) {
+    const error = new Error('No token, authorization denied')
+    error.statusCode = 401
+    return next(error)
   }
+
   const token = authHeader.split(' ')[1]
 
-  //check if token exist after spliting
-  if(!token) {
-    return res.status(401).json({message: 'No token, authorization denied'})
+  if (!token) {
+    const error = new Error('No token, authorization denied')
+    error.statusCode = 401
+    return next(error)
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    // Attach the decoded user information to the request object
     req.user = decoded.user
     next()
   } catch (err) {
-    console.erroe('Token Verification failed:', err.message)
-    res.status(400).json({message: "Token is not valied"})
+    logger.error('Token Verification failed:', err.message)
+    const error = new Error('Token is not valid')
+    error.statusCode = 401
+    return next(error)
   }
 }
 
