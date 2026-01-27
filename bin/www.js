@@ -1,4 +1,7 @@
 import dotenv from 'dotenv'
+import http from 'http'
+import app from '../server.js'
+import logger from '../src/config/logger.js'
 import prisma from '../src/config/prisma.js'
 
 dotenv.config();

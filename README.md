@@ -2,7 +2,7 @@
 
 Secure and scalable URL shortening API built with Node.js and PostgreSQL.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Runtime**: Node.js (ES Modules)
 - **Framework**: Express.js
@@ -12,12 +12,12 @@ Secure and scalable URL shortening API built with Node.js and PostgreSQL.
 - **Auth**: JWT
 - **Documentation**: Swagger/OpenAPI
 
-## 📖 API Documentation
+## API Documentation
 
 Once the server is running, visit:
 `http://localhost:5000/api-docs`
 
-## ⚙️ Setup
+## Setup
 
 1. `npm install`
 2. Create `.env` based on `sample.env` if not present.
@@ -25,7 +25,7 @@ Once the server is running, visit:
 4. `npx prisma db push` to sync schema.
 5. `npm run dev` for development.
 
-## 🚀 Key Features
+## Key Features
 
 - **Strict Validation**: All endpoints validated with Zod.
 - **Redirection**: Fast 302 redirects from `/s/:shortCode`.

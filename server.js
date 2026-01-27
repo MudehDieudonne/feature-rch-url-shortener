@@ -1,47 +1,45 @@
-// import express from 'express'
-// import dotenv from 'dotenv'
-// import mongoose, { connect } from 'mongoose'
-// import cors from 'cors'
-// import authRoutes from './src/routes/authRoutes.js'
-// import testRoutes from './src/routes/testRoutes.js'
-// import apiRoutes from './src/routes/apiRoutes.js'
-// import publicRoutes from './src/routes/publicRoutes.js'
-// import { notFound, errorHandler } from './src/middleware/errorMiddleware.js'
-// import swaggerUi from 'swagger-ui-express'
-// import swaggerJSDoc from 'swagger-jsdoc'
-// import swaggerOptions from './src/swaggerConfig.js'
-// import logger from './src/config/logger.js'
-// import morgan from 'morgan'
+import express from 'express'
+import dotenv from 'dotenv'
+import cors from 'cors'
+import authRoutes from './src/routes/authRoutes.js'
+import apiRoutes from './src/routes/apiRoutes.js'
+import publicRoutes from './src/routes/publicRoutes.js'
+import { notFound, errorHandler } from './src/middleware/errorMiddleware.js'
+import swaggerUi from 'swagger-ui-express'
+import swaggerJSDoc from 'swagger-jsdoc'
+import swaggerOptions from './src/swaggerConfig.js'
+import logger from './src/config/logger.js'
+import morgan from 'morgan'
 
-// // load env
-// dotenv.config()
+// load env
+dotenv.config()
 
-// const app = express()
+const app = express()
 
-// //swagger documentation setup
-// const swaggerSpec = swaggerJSDoc(swaggerOptions)
-// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+// Middleware
+app.use(cors())
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
 
-// //Database Connection
-// const connectDB = async () => {
-//   try{
-//     await mongoose.connect(process.env.MONGO_URI)
-//     logger.info('MongoDB Connected...')
-//   } catch (err) {
-//     logger.error('MongoDB connection failed:', err.message, err)
-//     process.exit(1)
-//   }
-// }
+// Morgan HTTP logging (using Winston)
+const morganFormat = ':method :url :status :res[content-length] - :response-time ms'
+app.use(morgan(morganFormat, {
+    stream: {
+        write: (message) => logger.http(message.trim())
+    }
+}))
 
-// connectDB()
+// Swagger documentation setup
+const swaggerSpec = swaggerJSDoc(swaggerOptions)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
-// app.use(notFound)
+// Routes
+app.use('/api/auth', authRoutes)
+app.use('/api', apiRoutes)
+app.use('/s', publicRoutes)
 
-// // for errors passed by next(err) and unhandled exceptions
-// app.use(errorHandler)
+// Error handling middleware
+app.use(notFound)
+app.use(errorHandler)
 
-// const PORT = process.env.PORT || 5000
-
-// app.listen(PORT, () => {
-//   logger.info(`Server running on port ${PORT}`)
-// })
+export default app
